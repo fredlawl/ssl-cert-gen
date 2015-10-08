@@ -1,0 +1,81 @@
+#!/bin/bash
+
+################################################################################
+# Setup
+################################################################################
+
+OPTIND=1
+install=0
+
+
+################################################################################
+# Help Function
+################################################################################
+
+function help {
+    cat << EOF
+NAME:
+    sslcertgen
+
+SYNOPSIS:
+    sslcertgen [OPTIONS] [FILENAME]
+
+DESCRIPTION:
+    Auto-generates a self-signed ssl certificate for speedy web-dev
+
+OPTIONS:
+    -i
+        Installs the certificate at /etc/ssl/certs/
+        Installs the key at /etc/ssl/private/
+
+    -h
+        Displays this help list
+EOF
+}
+
+
+################################################################################
+# Programming
+################################################################################
+
+echo "---------------------------------------"
+echo "Create a self-signed SSL Certificate"
+echo "---------------------------------------"
+
+while getopts ":ih" opt; do
+    case "$opt" in
+    i)
+        install=1
+        ;;
+    h)  help
+        exit 0
+        ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+[ "$1" = "--" ] && shift
+
+openssl genrsa -des3 -out "$1".key 2048
+openssl rsa -in "$1".key -out "$1".key.insecure
+mv "$1".key "$1".key.secure
+mv "$1".key.insecure "$1".key
+openssl req -new -key "$1".key -out "$1".csr
+openssl x509 -req -days 365 -in "$1".csr -signkey "$1".key -out "$1".crt
+
+################################################################################
+# Install paramater
+################################################################################
+if [ "$install" -eq 1 ]; then
+    echo "Installing SSL Certificate"
+    sudo cp "$1".crt /etc/ssl/certs
+    sudo cp "$1".key /etc/ssl/private
+
+    echo "Installed $1.key at /etc/ssl/private/$1.key"
+    echo "Installed $1.crt at /etc/ssl/certs/$1.crt"
+fi
